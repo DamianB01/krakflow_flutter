@@ -64,8 +64,22 @@ class _HomeScreenState extends State<HomeScreen> {
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           final newTask = await Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => AddTaskScreen())
+            context,
+            PageRouteBuilder(
+              pageBuilder: (context, animation, secondaryAnimation) =>
+                  AddTaskScreen(),
+              transitionsBuilder:
+                  (context, animation, secondaryAnimation, child) {
+                final offsetAnimation = Tween<Offset>(
+                  begin: Offset(1.0, 0.0),
+                  end: Offset.zero,
+                ).animate(animation);
+                return SlideTransition(
+                  position: offsetAnimation,
+                  child: child,
+                );
+              },
+            ),
           );
           if (newTask != null) {
             setState(() {
