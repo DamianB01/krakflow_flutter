@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'task_repository.dart';
+import 'services/task_api_service.dart';
 
 void main() {
   runApp(const MaterialApp(
@@ -50,6 +51,30 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   String selectedFilter = "wszystkie";
+  bool _isLoaded = false;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchInitialTasks();
+  }
+
+  Future<void> _fetchInitialTasks() async {
+    try {
+      final apiTasks = await TaskApiService.fetchTasks();
+      setState(() {
+        TaskRepository.tasks.addAll(apiTasks);
+        _isLoaded = true;
+        _errorMessage = null;
+      });
+    } catch (e) {
+      setState(() => _isLoaded = true);
+      print("Błąd pobierania: $e");
+      _errorMessage = "Nie udało się pobrać zadań. Sprawdź połączenie.";
+    }
+  }
+
   List<Task> get filteredTasks {
     if (selectedFilter == "wykonane") {
       return TaskRepository.tasks.where((t) => t.done).toList();
@@ -97,8 +122,46 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_isLoaded) {
+      return const Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 10),
+              Text("Pobieranie zadań..."),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, color: Colors.red, size: 60),
+              const SizedBox(height: 10),
+              Text(_errorMessage!, style: const TextStyle(fontSize: 16)),
+              ElevatedButton(
+                onPressed: () {
+                  setState(() => _isLoaded = false);
+                  _fetchInitialTasks();
+                },
+                child: const Text("Spróbuj ponownie"),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final tasks = filteredTasks;
     final doneTasks = TaskRepository.tasks.where((t) => t.done).length;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("KrakFlow"),
@@ -126,9 +189,9 @@ class _HomeScreenState extends State<HomeScreen> {
               onFilterChanged: (f) => setState(() => selectedFilter = f),
             ),
             const SizedBox(height: 4),
-            Text(
+            const Text(
               "Dzisiejsze zadania",
-              style: const TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
             Expanded(
@@ -137,7 +200,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 itemBuilder: (context, index) {
                   final task = tasks[index];
                   return Dismissible(
-                    key: ValueKey(task.title + task.deadline),
+                    key: ObjectKey(task),
                     direction: DismissDirection.endToStart,
                     background: Container(
                       alignment: Alignment.centerRight,
@@ -158,8 +221,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     },
                     child: TaskCard(
                       title: task.title,
-                      subtitle:
-                      "${task.deadline} | Priorytet: ${task.priority}",
+                      subtitle: "${task.deadline} | Priorytet: ${task.priority}",
                       done: task.done,
                       onChanged: (value) {
                         setState(() {
@@ -214,6 +276,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
+
 
 class TaskCard extends StatelessWidget {
   final String title;
