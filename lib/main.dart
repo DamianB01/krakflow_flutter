@@ -5,11 +5,13 @@ import 'models/task.dart';
 import 'services/task_local_database.dart';
 import 'services/task_sync_service.dart';
 import 'dart:math';
+import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Hive.initFlutter();
   await Hive.openBox("tasks");
+  await NotificationService.init();
   runApp(const MaterialApp(
     debugShowCheckedModeBanner: false,
     home: HomeScreen(),
@@ -227,14 +229,21 @@ class _HomeScreenState extends State<HomeScreen> {
                           subtitle: "${task.deadline} | Priorytet: ${task.priority}",
                           done: task.done,
                           onChanged: (value) async {
+                            final isDone = value ?? false;
+                            final wasDone = task.done;
                             final updatedTask = Task(
                               id: task.id,
                               title: task.title,
                               deadline: task.deadline,
                               priority: task.priority,
-                              done: value!,
+                              done: isDone,
                             );
                             await TaskLocalDatabase.updateTask(updatedTask);
+                            if (!wasDone && isDone) {
+                              await NotificationService.showTaskDoneNotification(
+                                task.title,
+                              );
+                            }
                             refreshData();
                           },
                           onTap: () async {
